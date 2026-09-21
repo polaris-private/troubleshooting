@@ -50,6 +50,9 @@
     <ClCompile Include="fixes\m014_ratchet.cpp">
       <Filter>fixes</Filter>
     </ClCompile>
+    <ClCompile Include="fixes\m016_update_pending.cpp">
+      <Filter>fixes</Filter>
+    </ClCompile>
     <ClCompile Include="fixes\m020_dll_cache.cpp">
       <Filter>fixes</Filter>
     </ClCompile>
@@ -77,6 +80,9 @@
       <Filter>fixes</Filter>
     </ClInclude>
     <ClInclude Include="fixes\m014_ratchet.hpp">
+      <Filter>fixes</Filter>
+    </ClInclude>
+    <ClInclude Include="fixes\m016_update_pending.hpp">
       <Filter>fixes</Filter>
     </ClInclude>
     <ClInclude Include="fixes\m020_dll_cache.hpp">

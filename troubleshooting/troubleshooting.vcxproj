@@ -166,6 +166,7 @@
     <ClCompile Include="core\registry.cpp" />
     <ClCompile Include="fixes\m009_drv_cache.cpp" />
     <ClCompile Include="fixes\m014_ratchet.cpp" />
+    <ClCompile Include="fixes\m016_update_pending.cpp" />
     <ClCompile Include="fixes\m020_dll_cache.cpp" />
     <ClCompile Include="platform\paths.cpp" />
     <ClCompile Include="ui\app.cpp" />
@@ -177,6 +178,7 @@
     <ClInclude Include="core\registry.hpp" />
     <ClInclude Include="fixes\m009_drv_cache.hpp" />
     <ClInclude Include="fixes\m014_ratchet.hpp" />
+    <ClInclude Include="fixes\m016_update_pending.hpp" />
     <ClInclude Include="fixes\m020_dll_cache.hpp" />
     <ClInclude Include="platform\paths.hpp" />
     <ClInclude Include="ui\app.hpp" />

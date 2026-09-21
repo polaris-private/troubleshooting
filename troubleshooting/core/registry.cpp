@@ -4,6 +4,7 @@
 
 #include "../fixes/m009_drv_cache.hpp"
 #include "../fixes/m014_ratchet.hpp"
+#include "../fixes/m016_update_pending.hpp"
 #include "../fixes/m020_dll_cache.hpp"
 
 namespace ts::core
@@ -32,6 +33,19 @@ namespace ts::core
                 { "delete %LOCALAPPDATA%\\Polaris-<hash>\\dll-<slug>.bin",
                   "retry inject; loader will re-download a fresh module" },
                 &fixes::m020::run, subsystem::main });
+
+            v.push_back({ err_code::m_update_swap_failed, "m_update_swap_failed",
+                "update binary swap failed",
+                { "close any polaris loader instance",
+                  "delete %LOCALAPPDATA%\\Polaris-<hash>\\update-pending.*",
+                  "relaunch the loader" },
+                &fixes::m016::run, subsystem::main });
+
+            v.push_back({ err_code::m_update_signature_failed, "m_update_signature_failed",
+                "update signature verification failed",
+                { "delete %LOCALAPPDATA%\\Polaris-<hash>\\update-pending.*",
+                  "relaunch the loader to force a fresh download" },
+                &fixes::m016::run, subsystem::main });
 
             return v;
         }
