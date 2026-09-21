@@ -106,19 +106,37 @@ namespace ts::ui
 
         const auto entries = core::all_entries();
 
-        std::vector<std::string> menu_labels;
-        menu_labels.reserve(entries.size());
+        std::vector<std::string> code_column;
+        std::vector<std::string> symbol_column;
+        code_column.reserve(entries.size());
+        symbol_column.reserve(entries.size());
         for (const auto & e : entries)
         {
-            std::string label = core::format_code(e.code);
-            label.append("  ");
-            label.append(e.symbol);
-            menu_labels.push_back(std::move(label));
+            code_column.push_back(core::format_code(e.code));
+            symbol_column.emplace_back(e.symbol);
         }
 
+        std::vector<std::string> menu_labels(entries.size(), std::string{});
         int selected = 0;
 
         MenuOption menu_opt = MenuOption::Vertical();
+        menu_opt.entries_option.transform = [&](const EntryState & s) -> Element
+        {
+            const std::size_t i = static_cast<std::size_t>(s.index);
+            if (i >= entries.size()) return text(s.label);
+
+            const auto & entry = entries[i];
+            const auto sub_col  = subsys_color(entry.sub);
+
+            Element code_e   = text(code_column[i])   | bold | color(sub_col);
+            Element sym_e    = text(symbol_column[i]) | dim;
+            Element marker   = text(s.active ? " > " : "   ");
+            if (s.focused) marker = text(" > ") | color(Color::White) | bold;
+
+            Element row = hbox({ marker, code_e, text("  "), sym_e });
+            if (s.focused) row = row | inverted;
+            return row;
+        };
         auto menu = Menu(&menu_labels, &selected, menu_opt);
 
         status_log log;
