@@ -91,6 +91,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
        <GenerateDebugInformation>true</GenerateDebugInformation>
+       <EnableUAC>true</EnableUAC>
+       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
     </Link>
     <Manifest>
        <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -109,6 +111,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
        <GenerateDebugInformation>true</GenerateDebugInformation>
+       <EnableUAC>true</EnableUAC>
+       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
     </Link>
     <Manifest>
        <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -125,6 +129,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
        <GenerateDebugInformation>true</GenerateDebugInformation>
+       <EnableUAC>true</EnableUAC>
+       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
        <AdditionalDependencies>ftxui-component.lib;ftxui-dom.lib;ftxui-screen.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
@@ -144,6 +150,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
        <GenerateDebugInformation>true</GenerateDebugInformation>
+       <EnableUAC>true</EnableUAC>
+       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
        <AdditionalDependencies>ftxui-component.lib;ftxui-dom.lib;ftxui-screen.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>

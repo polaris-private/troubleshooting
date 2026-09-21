@@ -7,7 +7,7 @@ only auto-fixable codes appear in the list. codes that need network, credentials
 
 ## use
 
-download the latest `troubleshooting.exe` from releases and run it from a terminal:
+download the latest `troubleshooting.exe` from releases and run it. windows will prompt for administrator elevation (needed to close protected debuggers and clean state that lives under `%LOCALAPPDATA%`).
 
 ```
 troubleshooting.exe
