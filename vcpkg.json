@@ -1,0 +1,7 @@
+{
+    "name": "polaris-troubleshooting",
+    "version-string": "0.1.0",
+    "dependencies": [
+        "ftxui"
+    ]
+}
