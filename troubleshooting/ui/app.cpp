@@ -142,6 +142,11 @@ namespace ts::ui
         status_log log;
         std::atomic<bool> fix_running{ false };
 
+        std::mutex        last_result_mtx;
+        core::fix_result  last_result{};
+        std::string       last_result_code;
+        bool              show_result = false;
+
         auto detail_renderer = Renderer([&]
         {
             if (selected < 0 || selected >= static_cast<int>(entries.size()))
@@ -172,6 +177,14 @@ namespace ts::ui
                 std::string tail = std::string("[") + code_str + "] "
                     + (r.ok ? "ok: " : "failed: ") + r.message;
                 log.push(std::move(tail));
+
+                {
+                    const std::scoped_lock lk{ last_result_mtx };
+                    last_result      = std::move(r);
+                    last_result_code = code_str;
+                    show_result      = true;
+                }
+
                 fix_running.store(false, std::memory_order_release);
                 screen.PostEvent(Event::Custom);
             }).detach();
@@ -296,12 +309,81 @@ namespace ts::ui
             });
         });
 
-        auto ui_with_modal = ui | Modal(confirm_modal, &show_confirm);
+        auto result_close = Button(" [ close ] ", [&]
+        {
+            const std::scoped_lock lk{ last_result_mtx };
+            show_result = false;
+        }, ButtonOption::Ascii());
+
+        auto result_buttons = Container::Horizontal({ result_close });
+
+        auto result_modal = Renderer(result_buttons, [&]
+        {
+            core::fix_result snapshot;
+            std::string code_str;
+            {
+                const std::scoped_lock lk{ last_result_mtx };
+                snapshot = last_result;
+                code_str = last_result_code;
+            }
+
+            Elements action_rows;
+            action_rows.reserve(snapshot.actions_taken.size());
+            for (const auto & a : snapshot.actions_taken)
+            {
+                Element bullet = a.ok
+                    ? text(" ok  ") | color(Color::Green)
+                    : text(" fail") | color(Color::Red);
+                action_rows.push_back(hbox({
+                    bullet,
+                    text("  "),
+                    paragraph(a.description),
+                }));
+            }
+            if (action_rows.empty())
+                action_rows.push_back(text("(no actions recorded)") | dim);
+
+            Element verdict = snapshot.ok
+                ? text(" success ") | color(Color::Black) | bgcolor(Color::Green) | bold
+                : text(" failed  ") | color(Color::White) | bgcolor(Color::Red)   | bold;
+
+            return vbox({
+                hbox({
+                    verdict,
+                    text("  "),
+                    text(code_str) | bold,
+                }),
+                separator(),
+                text("actions taken:") | dim,
+                vbox(std::move(action_rows)) | vscroll_indicator | yframe
+                    | size(HEIGHT, LESS_THAN, 12),
+                separator(),
+                text("summary:") | dim,
+                paragraph(snapshot.message),
+                text(""),
+                hbox({
+                    filler(),
+                    result_close->Render(),
+                    filler(),
+                }),
+                text(""),
+            }) | border | size(WIDTH, GREATER_THAN, 64) | bgcolor(Color::Black);
+        });
+
+        auto ui_with_modal = ui
+            | Modal(confirm_modal, &show_confirm)
+            | Modal(result_modal,  &show_result);
 
         auto app = CatchEvent(ui_with_modal, [&](const Event & e) -> bool
         {
             if (e == Event::Escape)
             {
+                if (show_result)
+                {
+                    const std::scoped_lock lk{ last_result_mtx };
+                    show_result = false;
+                    return true;
+                }
                 if (show_confirm)
                 {
                     show_confirm = false;
@@ -315,7 +397,8 @@ namespace ts::ui
             }
             if (e == Event::Character('q'))
             {
-                if (!show_confirm && !fix_running.load(std::memory_order_acquire))
+                if (!show_confirm && !show_result
+                    && !fix_running.load(std::memory_order_acquire))
                 {
                     screen.ExitLoopClosure()();
                     return true;
