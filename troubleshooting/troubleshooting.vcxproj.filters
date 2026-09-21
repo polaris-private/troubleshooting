@@ -26,9 +26,18 @@
     <ClCompile Include="core\err_code.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\fix_context.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\err_code.hpp">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\fix_context.hpp">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\fix_result.hpp">
       <Filter>core</Filter>
     </ClInclude>
   </ItemGroup>

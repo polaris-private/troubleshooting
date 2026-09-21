@@ -154,9 +154,12 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="core\err_code.cpp" />
+    <ClCompile Include="core\fix_context.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\err_code.hpp" />
+    <ClInclude Include="core\fix_context.hpp" />
+    <ClInclude Include="core\fix_result.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
