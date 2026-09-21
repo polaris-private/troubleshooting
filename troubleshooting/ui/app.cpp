@@ -92,10 +92,7 @@ namespace ts::ui
             body.push_back(text("manual steps:") | bold);
             for (auto & s : steps) body.push_back(std::move(s));
             body.push_back(text(""));
-            if (e.has_auto_fix())
-                body.push_back(text("auto fix available") | color(Color::Green));
-            else
-                body.push_back(text("no auto fix - follow the manual steps") | dim);
+            body.push_back(text("auto fix available") | color(Color::Green));
 
             return vbox(std::move(body));
         }
@@ -116,7 +113,6 @@ namespace ts::ui
             std::string label = core::format_code(e.code);
             label.append("  ");
             label.append(e.symbol);
-            if (e.has_auto_fix()) label.append("  *");
             menu_labels.push_back(std::move(label));
         }
 

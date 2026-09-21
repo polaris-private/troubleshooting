@@ -1,45 +1,55 @@
 polaris troubleshooting
 ----
 
-fixes common polaris loader errors. you tell it which error code you got, it either applies the fix for you or walks you through the manual steps.
+fixes polaris loader errors that can be safely automated. you tell it which error code the loader gave you, it runs the fix and reports what it did.
+
+only auto-fixable codes appear in the list. codes that need network, credentials, a driver reinstall, or human judgment are out of scope and belong in support.
 
 ## use
 
-download the latest `troubleshooting.exe` from releases. open a terminal in the folder and run it:
+download the latest `troubleshooting.exe` from releases and run it from a terminal:
 
 ```
 troubleshooting.exe
 ```
 
-pick the code the loader gave you (e.g. `M014`), pick **auto fix** or **manual steps**. auto fix runs immediately and reports what it did. manual steps prints the commands / paths you need to touch.
+pick the code the loader gave you, press auto fix, follow the on-screen result (usually "sign in again" or "retry inject").
 
-## codes with auto fix
+## supported codes
 
-- **T001..T005** — debugger detected → closes known debuggers, then relaunch the loader
-- **P004** — tamper mismatch → clears loader cache, forces updater on next launch
-- **M003** — config read failed → resets config to defaults
-- **M009** — driver binary invalid → clears cached driver blob, next launch re-downloads
-- **M014** — session not authenticated → deletes `ratchet.dat`, sign in again
-- **M016** — update swap failed → clears the pending update
-- **M017** — update signature failed → clears the update files, forces re-download
-- **M018** — no product selected → auto-selects if you own only one product
-- **M020** — module binary invalid → clears cached module blob, next launch re-downloads
+- **M014** `m_drv_session_invalid` - injection session not authenticated → delete `ratchet.dat`
 
-## codes without auto fix (manual only)
+more codes are added per release. see closed prs on the repo for what landed when.
 
-everything else in the loader error list. the tool tells you what the code means and what to check (network, license state, hwid, etc.). when a code needs the panel or support, it opens the right page for you.
+## out of scope
+
+anything network-dependent (M008, M015, M019), credential-dependent (A-family), license-state (L-family), gpu / overlay init (O-family), kernel-side (M010, M011, M013). these need attention that a filesystem cleanup cannot give.
 
 ## build from source
 
-visual studio 2022, `PlatformToolset=v145`, `stdcpplatest`, vcpkg manifest.
+visual studio 2022, `PlatformToolset=v145`, `stdcpplatest`, vcpkg manifest, triplet `x64-windows-static-md`.
 
 ```
-git clone <repo>
+git clone https://github.com/polaris-private/troubleshooting.git
 cd troubleshooting
 msbuild troubleshooting.slnx /p:Configuration=Release /p:Platform=x64
 ```
 
 vcpkg pulls `ftxui` on first configure.
+
+## layout
+
+```
+troubleshooting/
+  troubleshooting.slnx           solution
+  vcpkg.json                     manifest (ftxui)
+  troubleshooting/               msvc project
+    main.cpp                     entry, calls ts::ui::run()
+    core/                        code enum + registry + fix result / context
+    platform/                    filesystem + windows helpers
+    fixes/                       one file per auto-fix (function ptr wired in registry)
+    ui/                          ftxui shell
+```
 
 ## report
 
