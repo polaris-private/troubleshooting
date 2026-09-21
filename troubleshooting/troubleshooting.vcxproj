@@ -156,12 +156,14 @@
     <ClCompile Include="core\err_code.cpp" />
     <ClCompile Include="core\fix_context.cpp" />
     <ClCompile Include="core\registry.cpp" />
+    <ClCompile Include="ui\app.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\err_code.hpp" />
     <ClInclude Include="core\fix_context.hpp" />
     <ClInclude Include="core\fix_result.hpp" />
     <ClInclude Include="core\registry.hpp" />
+    <ClInclude Include="ui\app.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

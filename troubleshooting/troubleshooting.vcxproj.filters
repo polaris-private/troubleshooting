@@ -18,6 +18,9 @@
     <Filter Include="core">
       <UniqueIdentifier>{a1c0a501-4f21-4a26-b3f6-9a6a5b5f0001}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ui">
+      <UniqueIdentifier>{a1c0a501-4f21-4a26-b3f6-9a6a5b5f0002}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -32,6 +35,9 @@
     <ClCompile Include="core\registry.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="ui\app.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\err_code.hpp">
@@ -45,6 +51,9 @@
     </ClInclude>
     <ClInclude Include="core\registry.hpp">
       <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\app.hpp">
+      <Filter>ui</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
