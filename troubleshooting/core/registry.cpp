@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "../fixes/m003_config_reset.hpp"
 #include "../fixes/m009_drv_cache.hpp"
 #include "../fixes/m014_ratchet.hpp"
 #include "../fixes/m016_update_pending.hpp"
@@ -15,6 +16,12 @@ namespace ts::core
         {
             std::vector<code_entry> v;
             v.reserve(16);
+
+            v.push_back({ err_code::m_config_read, "m_config_read",
+                "config read failed",
+                { "delete %LOCALAPPDATA%\\Polaris-<hash>\\config.json",
+                  "relaunch the loader; defaults get regenerated on start" },
+                &fixes::m003::run, subsystem::main });
 
             v.push_back({ err_code::m_drv_binary_invalid, "m_drv_binary_invalid",
                 "driver binary invalid or corrupt",

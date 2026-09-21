@@ -17,6 +17,7 @@ pick the code the loader gave you, press auto fix, follow the on-screen result (
 
 ## supported codes
 
+- **M003** `m_config_read` - config read failed → delete `config.json` (defaults regenerate on relaunch)
 - **M009** `m_drv_binary_invalid` - driver binary invalid or corrupt → delete cached `drv.bin`
 - **M014** `m_drv_session_invalid` - injection session not authenticated → delete `ratchet.dat`
 - **M016** `m_update_swap_failed` - update binary swap failed → delete pending `update-pending.*`

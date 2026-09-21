@@ -44,6 +44,9 @@
     <ClCompile Include="ui\app.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="fixes\m003_config_reset.cpp">
+      <Filter>fixes</Filter>
+    </ClCompile>
     <ClCompile Include="fixes\m009_drv_cache.cpp">
       <Filter>fixes</Filter>
     </ClCompile>
@@ -75,6 +78,9 @@
     </ClInclude>
     <ClInclude Include="ui\app.hpp">
       <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="fixes\m003_config_reset.hpp">
+      <Filter>fixes</Filter>
     </ClInclude>
     <ClInclude Include="fixes\m009_drv_cache.hpp">
       <Filter>fixes</Filter>

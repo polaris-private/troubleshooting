@@ -164,6 +164,7 @@
     <ClCompile Include="core\err_code.cpp" />
     <ClCompile Include="core\fix_context.cpp" />
     <ClCompile Include="core\registry.cpp" />
+    <ClCompile Include="fixes\m003_config_reset.cpp" />
     <ClCompile Include="fixes\m009_drv_cache.cpp" />
     <ClCompile Include="fixes\m014_ratchet.cpp" />
     <ClCompile Include="fixes\m016_update_pending.cpp" />
@@ -176,6 +177,7 @@
     <ClInclude Include="core\fix_context.hpp" />
     <ClInclude Include="core\fix_result.hpp" />
     <ClInclude Include="core\registry.hpp" />
+    <ClInclude Include="fixes\m003_config_reset.hpp" />
     <ClInclude Include="fixes\m009_drv_cache.hpp" />
     <ClInclude Include="fixes\m014_ratchet.hpp" />
     <ClInclude Include="fixes\m016_update_pending.hpp" />
