@@ -4,6 +4,7 @@
 
 #include "../fixes/m009_drv_cache.hpp"
 #include "../fixes/m014_ratchet.hpp"
+#include "../fixes/m020_dll_cache.hpp"
 
 namespace ts::core
 {
@@ -25,6 +26,12 @@ namespace ts::core
                 { "delete %LOCALAPPDATA%\\Polaris-<hex12(hwid)>\\ratchet.dat",
                   "sign out and sign back in from the loader" },
                 &fixes::m014::run, subsystem::main });
+
+            v.push_back({ err_code::m_dll_binary_invalid, "m_dll_binary_invalid",
+                "module binary invalid or corrupt",
+                { "delete %LOCALAPPDATA%\\Polaris-<hash>\\dll-<slug>.bin",
+                  "retry inject; loader will re-download a fresh module" },
+                &fixes::m020::run, subsystem::main });
 
             return v;
         }
