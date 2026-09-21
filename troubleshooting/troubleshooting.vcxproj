@@ -170,6 +170,7 @@
     <ClCompile Include="fixes\m016_update_pending.cpp" />
     <ClCompile Include="fixes\m020_dll_cache.cpp" />
     <ClCompile Include="platform\paths.cpp" />
+    <ClCompile Include="platform\processes.cpp" />
     <ClCompile Include="ui\app.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -183,6 +184,7 @@
     <ClInclude Include="fixes\m016_update_pending.hpp" />
     <ClInclude Include="fixes\m020_dll_cache.hpp" />
     <ClInclude Include="platform\paths.hpp" />
+    <ClInclude Include="platform\processes.hpp" />
     <ClInclude Include="ui\app.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
