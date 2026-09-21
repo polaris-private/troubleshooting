@@ -15,8 +15,21 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <Filter Include="core">
+      <UniqueIdentifier>{a1c0a501-4f21-4a26-b3f6-9a6a5b5f0001}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="core\err_code.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="core\err_code.hpp">
+      <Filter>core</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
