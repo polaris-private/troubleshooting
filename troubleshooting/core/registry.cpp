@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "../fixes/m014_ratchet.hpp"
+
 namespace ts::core
 {
     namespace
@@ -267,7 +269,7 @@ namespace ts::core
                 "injection session not authenticated",
                 { "delete %LOCALAPPDATA%\\Polaris-<hex12(hwid)>\\ratchet.dat",
                   "sign out and sign back in from the loader" },
-                {}, subsystem::main });
+                &fixes::m014::run, subsystem::main });
 
             v.push_back({ err_code::m_update_download_failed, "m_update_download_failed",
                 "update binary download failed",
