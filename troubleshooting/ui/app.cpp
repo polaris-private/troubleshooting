@@ -1,6 +1,7 @@
 #include "app.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <deque>
 #include <mutex>
 #include <string>
@@ -141,6 +142,7 @@ namespace ts::ui
 
         status_log log;
         std::atomic<bool> fix_running{ false };
+        std::atomic<int>  spinner_frame{ 0 };
 
         std::mutex        last_result_mtx;
         core::fix_result  last_result{};
@@ -162,8 +164,19 @@ namespace ts::ui
             if (!entry.has_auto_fix()) return;
 
             fix_running.store(true, std::memory_order_release);
+            spinner_frame.store(0, std::memory_order_release);
             log.push(std::string("[") + core::format_code(entry.code) + "] running auto fix...");
             screen.PostEvent(Event::Custom);
+
+            std::thread([&]
+            {
+                while (fix_running.load(std::memory_order_acquire))
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    spinner_frame.fetch_add(1, std::memory_order_relaxed);
+                    screen.PostEvent(Event::Custom);
+                }
+            }).detach();
 
             std::thread([&, code_str = core::format_code(entry.code), fixer = entry.fixer]() mutable
             {
@@ -293,11 +306,19 @@ namespace ts::ui
             if (log_elems.empty())
                 log_elems.push_back(text("(no actions yet)") | dim);
 
+            const bool busy = fix_running.load(std::memory_order_acquire);
+            Element status_e = busy
+                ? hbox({
+                    spinner(4, spinner_frame.load(std::memory_order_relaxed)),
+                    text("  running fix...") | color(Color::Yellow),
+                  })
+                : text("idle") | dim;
+
             return vbox({
                 hbox({
                     text("polaris troubleshooting") | bold,
                     filler(),
-                    text(fix_running.load() ? "working..." : "idle") | dim,
+                    status_e,
                     text("  "),
                     text("q to quit") | dim,
                 }) | border,
