@@ -7,6 +7,7 @@
 #include "../fixes/m014_ratchet.hpp"
 #include "../fixes/m016_update_pending.hpp"
 #include "../fixes/m020_dll_cache.hpp"
+#include "../fixes/t_debuggers.hpp"
 
 namespace ts::core
 {
@@ -16,6 +17,36 @@ namespace ts::core
         {
             std::vector<code_entry> v;
             v.reserve(16);
+
+            v.push_back({ err_code::t_peb_being_debugged, "t_peb_being_debugged",
+                "debugger detected (peb.beingdebugged)",
+                { "close any debugger (ida, x64dbg, windbg, cheat engine, dnspy)",
+                  "relaunch the loader" },
+                &fixes::t_debuggers::run, subsystem::tamper });
+
+            v.push_back({ err_code::t_nt_global_flag, "t_nt_global_flag",
+                "debugger detected (nt global flag)",
+                { "close any tool that opens the game with debug heap flags",
+                  "relaunch the loader" },
+                &fixes::t_debuggers::run, subsystem::tamper });
+
+            v.push_back({ err_code::t_hw_breakpoint, "t_hw_breakpoint",
+                "hardware breakpoint present",
+                { "close x64dbg or any tool that sets dr0-dr3",
+                  "relaunch the loader" },
+                &fixes::t_debuggers::run, subsystem::tamper });
+
+            v.push_back({ err_code::t_debug_port, "t_debug_port",
+                "debug port set",
+                { "detach any debugger from the process",
+                  "relaunch the loader" },
+                &fixes::t_debuggers::run, subsystem::tamper });
+
+            v.push_back({ err_code::t_debug_object_handle, "t_debug_object_handle",
+                "debug object handle set",
+                { "close attach-based debuggers",
+                  "relaunch the loader" },
+                &fixes::t_debuggers::run, subsystem::tamper });
 
             v.push_back({ err_code::m_config_read, "m_config_read",
                 "config read failed",

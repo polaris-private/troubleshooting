@@ -17,6 +17,7 @@ pick the code the loader gave you, press auto fix, follow the on-screen result (
 
 ## supported codes
 
+- **T001..T005** `t_*` - debugger detected (peb, ntglobalflag, hw bp, debug port, debug object) → close known debuggers (ida, x64dbg, x32dbg, windbg, cheatengine, ollydbg, ProcessHacker, dnSpy, HTTPDebugger) and relaunch
 - **M003** `m_config_read` - config read failed → delete `config.json` (defaults regenerate on relaunch)
 - **M009** `m_drv_binary_invalid` - driver binary invalid or corrupt → delete cached `drv.bin`
 - **M014** `m_drv_session_invalid` - injection session not authenticated → delete `ratchet.dat`

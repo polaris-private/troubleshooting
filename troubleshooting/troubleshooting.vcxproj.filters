@@ -59,6 +59,9 @@
     <ClCompile Include="fixes\m020_dll_cache.cpp">
       <Filter>fixes</Filter>
     </ClCompile>
+    <ClCompile Include="fixes\t_debuggers.cpp">
+      <Filter>fixes</Filter>
+    </ClCompile>
     <ClCompile Include="platform\paths.cpp">
       <Filter>platform</Filter>
     </ClCompile>
@@ -95,6 +98,9 @@
       <Filter>fixes</Filter>
     </ClInclude>
     <ClInclude Include="fixes\m020_dll_cache.hpp">
+      <Filter>fixes</Filter>
+    </ClInclude>
+    <ClInclude Include="fixes\t_debuggers.hpp">
       <Filter>fixes</Filter>
     </ClInclude>
     <ClInclude Include="platform\paths.hpp">
