@@ -149,17 +149,12 @@ namespace ts::ui
             return render_detail(entries[selected]);
         });
 
-        auto run_auto_fix = [&]
+        auto spawn_fix = [&]
         {
             if (fix_running.load(std::memory_order_acquire)) return;
             if (selected < 0 || selected >= static_cast<int>(entries.size())) return;
             const auto & entry = entries[selected];
-            if (!entry.has_auto_fix())
-            {
-                log.push(std::string("[") + core::format_code(entry.code) + "] no auto fix");
-                screen.PostEvent(Event::Custom);
-                return;
-            }
+            if (!entry.has_auto_fix()) return;
 
             fix_running.store(true, std::memory_order_release);
             log.push(std::string("[") + core::format_code(entry.code) + "] running auto fix...");
@@ -182,7 +177,17 @@ namespace ts::ui
             }).detach();
         };
 
-        auto auto_fix_button = Button("[ auto fix ]", run_auto_fix, ButtonOption::Ascii());
+        bool show_confirm = false;
+
+        auto request_fix = [&]
+        {
+            if (fix_running.load(std::memory_order_acquire)) return;
+            if (selected < 0 || selected >= static_cast<int>(entries.size())) return;
+            if (!entries[selected].has_auto_fix()) return;
+            show_confirm = true;
+        };
+
+        auto auto_fix_button = Button("[ auto fix ]", request_fix, ButtonOption::Ascii());
         auto quit_button = Button("[ quit ]", screen.ExitLoopClosure(), ButtonOption::Ascii());
 
         auto action_row = Container::Horizontal({ auto_fix_button, quit_button });
@@ -190,6 +195,55 @@ namespace ts::ui
         auto right_pane = Container::Vertical({ detail_renderer, action_row });
 
         auto layout = Container::Horizontal({ menu, right_pane });
+
+        auto confirm_yes = Button(" [ yes, run ] ", [&]
+        {
+            show_confirm = false;
+            spawn_fix();
+        }, ButtonOption::Ascii());
+
+        auto confirm_no = Button(" [ cancel ] ", [&]
+        {
+            show_confirm = false;
+        }, ButtonOption::Ascii());
+
+        auto confirm_buttons = Container::Horizontal({ confirm_yes, confirm_no });
+
+        auto confirm_modal = Renderer(confirm_buttons, [&]
+        {
+            std::string code_str = (selected >= 0 && selected < static_cast<int>(entries.size()))
+                ? core::format_code(entries[selected].code)
+                : std::string{};
+            std::string symbol_str = (selected >= 0 && selected < static_cast<int>(entries.size()))
+                ? std::string(entries[selected].symbol)
+                : std::string{};
+
+            return vbox({
+                text(" confirm auto fix ") | bold | center,
+                separator(),
+                text(""),
+                hbox({
+                    text("code:   ") | dim,
+                    text(code_str) | bold,
+                }),
+                hbox({
+                    text("action: ") | dim,
+                    text(symbol_str),
+                }),
+                text(""),
+                paragraph("this will modify state on disk or terminate processes. "
+                          "make sure the polaris loader is closed before continuing."),
+                text(""),
+                hbox({
+                    filler(),
+                    confirm_yes->Render(),
+                    text("  "),
+                    confirm_no->Render(),
+                    filler(),
+                }),
+                text(""),
+            }) | border | size(WIDTH, GREATER_THAN, 56) | bgcolor(Color::Black);
+        });
 
         auto ui = Renderer(layout, [&]
         {
@@ -242,11 +296,26 @@ namespace ts::ui
             });
         });
 
-        auto app = CatchEvent(ui, [&](const Event & e) -> bool
+        auto ui_with_modal = ui | Modal(confirm_modal, &show_confirm);
+
+        auto app = CatchEvent(ui_with_modal, [&](const Event & e) -> bool
         {
-            if (e == Event::Character('q') || e == Event::Escape)
+            if (e == Event::Escape)
             {
+                if (show_confirm)
+                {
+                    show_confirm = false;
+                    return true;
+                }
                 if (!fix_running.load(std::memory_order_acquire))
+                {
+                    screen.ExitLoopClosure()();
+                    return true;
+                }
+            }
+            if (e == Event::Character('q'))
+            {
+                if (!show_confirm && !fix_running.load(std::memory_order_acquire))
                 {
                     screen.ExitLoopClosure()();
                     return true;
