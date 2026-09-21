@@ -17,6 +17,7 @@ pick the code the loader gave you, press auto fix, follow the on-screen result (
 
 ## supported codes
 
+- **M009** `m_drv_binary_invalid` - driver binary invalid or corrupt → delete cached `drv.bin`
 - **M014** `m_drv_session_invalid` - injection session not authenticated → delete `ratchet.dat`
 
 more codes are added per release. see closed prs on the repo for what landed when.

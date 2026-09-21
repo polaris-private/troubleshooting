@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "../fixes/m009_drv_cache.hpp"
 #include "../fixes/m014_ratchet.hpp"
 
 namespace ts::core
@@ -12,6 +13,12 @@ namespace ts::core
         {
             std::vector<code_entry> v;
             v.reserve(16);
+
+            v.push_back({ err_code::m_drv_binary_invalid, "m_drv_binary_invalid",
+                "driver binary invalid or corrupt",
+                { "delete %LOCALAPPDATA%\\Polaris-<hash>\\drv.bin",
+                  "retry inject; loader will re-download a fresh driver" },
+                &fixes::m009::run, subsystem::main });
 
             v.push_back({ err_code::m_drv_session_invalid, "m_drv_session_invalid",
                 "injection session not authenticated",
