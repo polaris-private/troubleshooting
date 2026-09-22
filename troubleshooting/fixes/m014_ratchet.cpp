@@ -30,6 +30,14 @@ namespace ts::fixes::m014
             const auto ratchet = dir / L"ratchet.dat";
             ctx.log(std::format("check {}", ratchet.string()));
 
+            if (platform::has_reparse_point(ratchet))
+            {
+                ++errors;
+                ctx.log("  refused: reparse point (symlink or junction)");
+                result.record("refused (reparse point): " + ratchet.string(), false);
+                continue;
+            }
+
             std::error_code ec;
             if (!std::filesystem::exists(ratchet, ec) || ec)
             {

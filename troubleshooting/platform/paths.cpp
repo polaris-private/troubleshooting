@@ -9,6 +9,13 @@
 
 namespace ts::platform
 {
+    bool has_reparse_point(const std::filesystem::path & p) noexcept
+    {
+        const DWORD attrs = ::GetFileAttributesW(p.c_str());
+        if (attrs == INVALID_FILE_ATTRIBUTES) return false;
+        return (attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+    }
+
     std::filesystem::path local_appdata()
     {
         wchar_t buf[MAX_PATH]{};
@@ -32,10 +39,16 @@ namespace ts::platform
              it.increment(ec))
         {
             const auto & entry = *it;
+
+            const auto name = entry.path().filename().wstring();
+            if (!name.starts_with(L"Polaris-")) continue;
+
+            if (has_reparse_point(entry.path())) continue;
+
             std::error_code ec2;
             if (!entry.is_directory(ec2) || ec2) continue;
-            const auto name = entry.path().filename().wstring();
-            if (name.starts_with(L"Polaris-")) out.push_back(entry.path());
+
+            out.push_back(entry.path());
         }
 
         return out;

@@ -30,6 +30,14 @@ namespace ts::fixes::m009
             const auto blob = dir / L"drv.bin";
             ctx.log(std::format("check {}", blob.string()));
 
+            if (platform::has_reparse_point(blob))
+            {
+                ++errors;
+                ctx.log("  refused: reparse point (symlink or junction)");
+                result.record("refused (reparse point): " + blob.string(), false);
+                continue;
+            }
+
             std::error_code ec;
             if (!std::filesystem::exists(blob, ec) || ec)
             {

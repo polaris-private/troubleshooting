@@ -43,6 +43,19 @@ namespace ts::fixes::m016
                 const auto & entry = *it;
                 if (!matches_pending(entry.path())) continue;
 
+                if (platform::has_reparse_point(entry.path()))
+                {
+                    ++errors;
+                    ctx.log(std::format("  refused reparse point: {}",
+                        entry.path().string()));
+                    result.record("refused (reparse point): "
+                        + entry.path().string(), false);
+                    continue;
+                }
+
+                std::error_code type_ec;
+                if (!entry.is_regular_file(type_ec) || type_ec) continue;
+
                 ctx.log(std::format("delete {}", entry.path().string()));
                 std::error_code rm_ec;
                 std::filesystem::remove(entry.path(), rm_ec);

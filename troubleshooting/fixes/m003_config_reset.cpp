@@ -30,6 +30,14 @@ namespace ts::fixes::m003
             const auto cfg = dir / L"config.json";
             ctx.log(std::format("check {}", cfg.string()));
 
+            if (platform::has_reparse_point(cfg))
+            {
+                ++errors;
+                ctx.log("  refused: reparse point (symlink or junction)");
+                result.record("refused (reparse point): " + cfg.string(), false);
+                continue;
+            }
+
             std::error_code ec;
             if (!std::filesystem::exists(cfg, ec) || ec)
             {
