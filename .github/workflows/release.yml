@@ -1,0 +1,61 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup msbuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: integrate vcpkg
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" integrate install
+          "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: build release x64
+        shell: pwsh
+        run: |
+          msbuild troubleshooting.slnx `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:VcpkgEnableManifest=true `
+            /m
+
+      - name: locate exe
+        id: locate
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path . -Recurse -Filter troubleshooting.exe |
+            Where-Object { $_.FullName -match 'x64\\Release' } |
+            Select-Object -First 1
+          if (-not $exe) { Write-Error "troubleshooting.exe not found"; exit 1 }
+          Write-Host "found: $($exe.FullName) ($([math]::Round($exe.Length/1KB,1)) KB)"
+          "exe_path=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.locate.outputs.exe_path }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          name: ${{ github.ref_name }}
+          body: |
+            polaris troubleshooting ${{ github.ref_name }}
+
+            download `troubleshooting.exe`, run from a terminal, pick your error code, hit auto fix.
+
+            windows will ask for administrator elevation on launch (needed to close protected debuggers and clean state under `%LOCALAPPDATA%`).
