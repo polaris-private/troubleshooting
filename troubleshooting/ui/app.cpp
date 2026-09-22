@@ -5,10 +5,13 @@
 #include <cctype>
 #include <chrono>
 #include <deque>
+#include <exception>
 #include <mutex>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <ftxui/component/component.hpp>
@@ -161,6 +164,9 @@ namespace ts::ui
 
         status_log log;
 
+        std::jthread spinner_thread;
+        std::jthread fixer_thread;
+
         std::vector<std::string> menu_dummy;
 
         auto recompute_filter = [&]
@@ -195,6 +201,9 @@ namespace ts::ui
             const auto & entry = entries[entry_idx];
             if (!entry.has_auto_fix()) return;
 
+            if (spinner_thread.joinable()) spinner_thread.join();
+            if (fixer_thread.joinable())   fixer_thread.join();
+
             log.clear();
             running_code = code_strs[entry_idx];
             fix_running.store(true, std::memory_order_release);
@@ -202,35 +211,56 @@ namespace ts::ui
             current_tab = static_cast<int>(screen::running);
             screen_h.PostEvent(Event::Custom);
 
-            std::thread([&]
+            spinner_thread = std::jthread([&](std::stop_token st)
             {
-                while (fix_running.load(std::memory_order_acquire))
+                while (!st.stop_requested()
+                    && fix_running.load(std::memory_order_acquire))
                 {
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     spinner_frame.fetch_add(1, std::memory_order_relaxed);
                     screen_h.PostEvent(Event::Custom);
                 }
-            }).detach();
+            });
 
-            std::thread([&, code_str = code_strs[entry_idx], fixer = entry.fixer]() mutable
-            {
-                core::fix_context ctx{ [&](std::string_view msg)
+            fixer_thread = std::jthread(
+                [&, code_str = code_strs[entry_idx], fixer = entry.fixer]
+                (std::stop_token st) mutable
                 {
-                    log.push(std::string(msg));
-                    screen_h.PostEvent(Event::Custom);
-                } };
+                    core::fix_context ctx{ [&](std::string_view msg)
+                    {
+                        log.push(std::string(msg));
+                        screen_h.PostEvent(Event::Custom);
+                    } };
+                    std::stop_callback cb{ st, [&] { ctx.request_cancel(); } };
 
-                core::fix_result r = fixer(ctx);
-                {
-                    const std::scoped_lock lk{ last_result_mtx };
-                    last_result      = std::move(r);
-                    last_result_code = code_str;
-                }
-                fix_running.store(false, std::memory_order_release);
-                current_tab  = static_cast<int>(screen::result);
-                result_focus = 0;
-                screen_h.PostEvent(Event::Custom);
-            }).detach();
+                    core::fix_result r;
+                    try
+                    {
+                        r = fixer(ctx);
+                    }
+                    catch (const std::exception & ex)
+                    {
+                        r = core::fix_result::failure(
+                            std::string("fix threw: ") + ex.what());
+                    }
+                    catch (...)
+                    {
+                        r = core::fix_result::failure("fix threw unknown exception");
+                    }
+
+                    screen_h.Post([&, r = std::move(r),
+                                   code_str = std::move(code_str)]() mutable
+                    {
+                        {
+                            const std::scoped_lock lk{ last_result_mtx };
+                            last_result      = std::move(r);
+                            last_result_code = std::move(code_str);
+                        }
+                        fix_running.store(false, std::memory_order_release);
+                        current_tab  = static_cast<int>(screen::result);
+                        result_focus = 0;
+                    });
+                });
         };
 
         InputOption search_opt = InputOption::Default();
