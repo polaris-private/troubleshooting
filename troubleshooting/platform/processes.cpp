@@ -52,6 +52,22 @@ namespace ts::platform
         return out;
     }
 
+    bool polaris_loader_running()
+    {
+        const auto ps = enumerate_processes();
+        for (const auto & p : ps)
+        {
+            std::string lower;
+            lower.reserve(p.exe_name.size());
+            for (char c : p.exe_name)
+                lower.push_back(
+                    static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+
+            if (lower == "loader.exe") return true;
+        }
+        return false;
+    }
+
     bool kill_process(std::uint32_t pid, std::string_view expected_name_lower) noexcept
     {
         if (pid == 0) return false;

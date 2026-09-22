@@ -5,6 +5,7 @@
 #include <system_error>
 
 #include "../platform/paths.hpp"
+#include "../platform/processes.hpp"
 
 namespace ts::fixes::m016
 {
@@ -18,6 +19,12 @@ namespace ts::fixes::m016
 
     core::fix_result run(core::fix_context & ctx)
     {
+        if (platform::polaris_loader_running())
+        {
+            return core::fix_result::failure(
+                "the polaris loader is currently running - close it first, then retry");
+        }
+
         const auto dirs = platform::polaris_stage_dirs();
         if (dirs.empty())
         {
