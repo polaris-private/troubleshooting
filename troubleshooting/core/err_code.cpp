@@ -16,6 +16,11 @@ namespace ts::core
         {
             "auth", "license", "overlay", "tamper", "protection", "utilities", "main"
         };
+
+        static_assert(letters.size() == names.size(),
+            "letters and names must match subsystem count");
+        static_assert(letters.size() == static_cast<std::size_t>(subsystem::main) + 1,
+            "letters/names must cover every subsystem enumerator");
     }
 
     subsystem subsys(err_code c) noexcept
