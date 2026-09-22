@@ -88,14 +88,16 @@ namespace ts::fixes::t_debuggers
             {
                 ++killed;
                 result.record(
-                    std::format("killed: {} (pid {})", p.exe_name, p.pid), true);
+                    std::format("killed: {} (pid {})", p.exe_name, p.pid),
+                    core::action_outcome::done);
             }
             else
             {
                 ++failed;
                 ctx.log("  terminate failed (protected, pid reused, or insufficient rights)");
                 result.record(
-                    std::format("failed: {} (pid {})", p.exe_name, p.pid), false);
+                    std::format("failed: {} (pid {})", p.exe_name, p.pid),
+                    core::action_outcome::failed);
             }
         }
 

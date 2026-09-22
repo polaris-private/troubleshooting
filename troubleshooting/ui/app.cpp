@@ -523,20 +523,20 @@ namespace ts::ui
                 for (const auto & a : snap.actions_taken)
                 {
                     Element mark;
-                    if (!a.ok)
+                    switch (a.outcome)
                     {
-                        mark = text("  x  ") | color(Color::Red) | bold;
-                        ++failed_actions;
-                    }
-                    else if (a.description.starts_with("not present"))
-                    {
-                        mark = text("  .  ") | dim;
-                        ++not_present;
-                    }
-                    else
-                    {
-                        mark = text("  +  ") | color(Color::Green) | bold;
-                        ++ok_deleted;
+                        case core::action_outcome::done:
+                            mark = text("  +  ") | color(Color::Green) | bold;
+                            ++ok_deleted;
+                            break;
+                        case core::action_outcome::not_present:
+                            mark = text("  .  ") | dim;
+                            ++not_present;
+                            break;
+                        case core::action_outcome::failed:
+                            mark = text("  x  ") | color(Color::Red) | bold;
+                            ++failed_actions;
+                            break;
                     }
                     action_rows.push_back(hbox({
                         text("   "),

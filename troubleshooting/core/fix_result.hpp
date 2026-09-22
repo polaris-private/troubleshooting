@@ -5,10 +5,17 @@
 
 namespace ts::core
 {
+    enum class action_outcome
+    {
+        done,
+        not_present,
+        failed,
+    };
+
     struct fix_action
     {
-        std::string description;
-        bool ok{ true };
+        std::string    description;
+        action_outcome outcome{ action_outcome::done };
     };
 
     struct fix_result
@@ -27,9 +34,9 @@ namespace ts::core
             return fix_result{ false, std::move(msg), {} };
         }
 
-        void record(std::string description, bool ok = true)
+        void record(std::string description, action_outcome outcome = action_outcome::done)
         {
-            actions_taken.push_back(fix_action{ std::move(description), ok });
+            actions_taken.push_back(fix_action{ std::move(description), outcome });
         }
     };
 }

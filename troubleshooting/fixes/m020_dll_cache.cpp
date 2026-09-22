@@ -52,7 +52,8 @@ namespace ts::fixes::m020
                 {
                     ++errors;
                     ctx.log(std::format("  refused reparse point: {}", entry_str));
-                    result.record("refused (reparse point): " + entry_str, false);
+                    result.record("refused (reparse point): " + entry_str,
+                        core::action_outcome::failed);
                     continue;
                 }
 
@@ -67,12 +68,14 @@ namespace ts::fixes::m020
                     ++errors;
                     ctx.log(std::format("  remove failed: {}",
                         platform::ec_message_utf8(rm_ec)));
-                    result.record("failed: " + entry_str, false);
+                    result.record("failed: " + entry_str,
+                        core::action_outcome::failed);
                 }
                 else
                 {
                     ++deleted;
-                    result.record("deleted: " + entry_str, true);
+                    result.record("deleted: " + entry_str,
+                        core::action_outcome::done);
                 }
             }
         }

@@ -35,7 +35,8 @@ namespace ts::fixes::m003
             {
                 ++errors;
                 ctx.log("  refused: reparse point (symlink or junction)");
-                result.record("refused (reparse point): " + cfg_str, false);
+                result.record("refused (reparse point): " + cfg_str,
+                    core::action_outcome::failed);
                 continue;
             }
 
@@ -46,13 +47,15 @@ namespace ts::fixes::m003
                 ++errors;
                 ctx.log(std::format("  exists check failed: {}",
                     platform::ec_message_utf8(ec)));
-                result.record("check failed: " + cfg_str, false);
+                result.record("check failed: " + cfg_str,
+                    core::action_outcome::failed);
                 continue;
             }
             if (!present)
             {
                 ++not_present;
-                result.record("not present: " + cfg_str, true);
+                result.record("not present: " + cfg_str,
+                    core::action_outcome::not_present);
                 continue;
             }
 
@@ -62,13 +65,15 @@ namespace ts::fixes::m003
                 ++errors;
                 ctx.log(std::format("  remove failed: {}",
                     platform::ec_message_utf8(ec)));
-                result.record("failed: " + cfg_str, false);
+                result.record("failed: " + cfg_str,
+                    core::action_outcome::failed);
             }
             else
             {
                 ++deleted;
                 ctx.log("  deleted");
-                result.record("deleted: " + cfg_str, true);
+                result.record("deleted: " + cfg_str,
+                    core::action_outcome::done);
             }
         }
 
