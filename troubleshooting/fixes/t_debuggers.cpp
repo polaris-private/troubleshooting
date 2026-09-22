@@ -101,10 +101,21 @@ namespace ts::fixes::t_debuggers
             }
         }
 
-        result.ok      = failed == 0;
-        result.message = killed == 0 && failed == 0
-            ? std::string("no known debugger was running - relaunch the loader anyway")
-            : std::format("{} killed, {} failed - relaunch the loader", killed, failed);
+        result.ok = (failed == 0) || (killed > 0);
+        if (killed == 0 && failed == 0)
+            result.message = "no known debugger was running - relaunch the loader anyway";
+        else if (failed == 0)
+            result.message = std::format(
+                "{} killed - relaunch the loader", killed);
+        else if (killed == 0)
+            result.message = std::format(
+                "{} could not be terminated (protected or pid reused) - "
+                "close manually and relaunch the loader", failed);
+        else
+            result.message = std::format(
+                "{} killed, {} could not be terminated - "
+                "close the remaining ones manually and relaunch the loader",
+                killed, failed);
         return result;
     }
 }

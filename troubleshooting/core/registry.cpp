@@ -18,34 +18,43 @@ namespace ts::core
             std::vector<code_entry> v;
             v.reserve(16);
 
+            const std::vector<std::string> t_kill_list = {
+                "the auto fix will terminate any of these processes if running:",
+                "  ida, ida64, idag, idag64, idaq, idaq64",
+                "  x64dbg, x32dbg, x96dbg",
+                "  windbg, windbgx, cdb, ntsd",
+                "  ollydbg",
+                "  cheatengine-* (all cheat engine builds)",
+                "  processhacker, systeminformer",
+                "  httpdebuggerui, httpdebuggersvc",
+                "  dnspy, dnspy-x86, dnspy.console",
+                "protected processes may refuse to close - kill them manually and retry",
+                "relaunch the loader after the fix",
+            };
+
             v.push_back({ err_code::t_peb_being_debugged, "t_peb_being_debugged",
                 "debugger detected (peb.beingdebugged)",
-                { "close any debugger (ida, x64dbg, windbg, cheat engine, dnspy)",
-                  "relaunch the loader" },
+                t_kill_list,
                 &fixes::t_debuggers::run, subsystem::tamper });
 
             v.push_back({ err_code::t_nt_global_flag, "t_nt_global_flag",
                 "debugger detected (nt global flag)",
-                { "close any tool that opens the game with debug heap flags",
-                  "relaunch the loader" },
+                t_kill_list,
                 &fixes::t_debuggers::run, subsystem::tamper });
 
             v.push_back({ err_code::t_hw_breakpoint, "t_hw_breakpoint",
                 "hardware breakpoint present",
-                { "close x64dbg or any tool that sets dr0-dr3",
-                  "relaunch the loader" },
+                t_kill_list,
                 &fixes::t_debuggers::run, subsystem::tamper });
 
             v.push_back({ err_code::t_debug_port, "t_debug_port",
                 "debug port set",
-                { "detach any debugger from the process",
-                  "relaunch the loader" },
+                t_kill_list,
                 &fixes::t_debuggers::run, subsystem::tamper });
 
             v.push_back({ err_code::t_debug_object_handle, "t_debug_object_handle",
                 "debug object handle set",
-                { "close attach-based debuggers",
-                  "relaunch the loader" },
+                t_kill_list,
                 &fixes::t_debuggers::run, subsystem::tamper });
 
             v.push_back({ err_code::m_config_read, "m_config_read",
