@@ -27,9 +27,11 @@ namespace ts::platform
         std::error_code ec;
         if (!std::filesystem::exists(la, ec) || ec) return out;
 
-        for (const auto & entry : std::filesystem::directory_iterator(la, ec))
+        for (auto it = std::filesystem::directory_iterator(la, ec);
+             !ec && it != std::filesystem::directory_iterator{};
+             it.increment(ec))
         {
-            if (ec) break;
+            const auto & entry = *it;
             std::error_code ec2;
             if (!entry.is_directory(ec2) || ec2) continue;
             const auto name = entry.path().filename().wstring();

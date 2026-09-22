@@ -35,10 +35,12 @@ namespace ts::fixes::m016
             if (ctx.cancelled()) break;
 
             std::error_code ec;
-            for (const auto & entry : std::filesystem::directory_iterator(dir, ec))
+            for (auto it = std::filesystem::directory_iterator(dir, ec);
+                 !ec && it != std::filesystem::directory_iterator{};
+                 it.increment(ec))
             {
-                if (ec) break;
                 if (ctx.cancelled()) break;
+                const auto & entry = *it;
                 if (!matches_pending(entry.path())) continue;
 
                 ctx.log(std::format("delete {}", entry.path().string()));
