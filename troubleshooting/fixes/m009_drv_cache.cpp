@@ -39,7 +39,15 @@ namespace ts::fixes::m009
             }
 
             std::error_code ec;
-            if (!std::filesystem::exists(blob, ec) || ec)
+            const bool present = std::filesystem::exists(blob, ec);
+            if (ec)
+            {
+                ++errors;
+                ctx.log(std::format("  exists check failed: {}", ec.message()));
+                result.record("check failed: " + blob.string(), false);
+                continue;
+            }
+            if (!present)
             {
                 ++not_present;
                 result.record("not present: " + blob.string(), true);

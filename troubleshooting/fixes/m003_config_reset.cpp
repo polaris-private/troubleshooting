@@ -39,7 +39,15 @@ namespace ts::fixes::m003
             }
 
             std::error_code ec;
-            if (!std::filesystem::exists(cfg, ec) || ec)
+            const bool present = std::filesystem::exists(cfg, ec);
+            if (ec)
+            {
+                ++errors;
+                ctx.log(std::format("  exists check failed: {}", ec.message()));
+                result.record("check failed: " + cfg.string(), false);
+                continue;
+            }
+            if (!present)
             {
                 ++not_present;
                 result.record("not present: " + cfg.string(), true);

@@ -39,7 +39,15 @@ namespace ts::fixes::m014
             }
 
             std::error_code ec;
-            if (!std::filesystem::exists(ratchet, ec) || ec)
+            const bool present = std::filesystem::exists(ratchet, ec);
+            if (ec)
+            {
+                ++errors;
+                ctx.log(std::format("  exists check failed: {}", ec.message()));
+                result.record("check failed: " + ratchet.string(), false);
+                continue;
+            }
+            if (!present)
             {
                 ++not_present;
                 result.record("not present: " + ratchet.string(), true);
