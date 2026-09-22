@@ -27,14 +27,15 @@ namespace ts::fixes::m003
         {
             if (ctx.cancelled()) break;
 
-            const auto cfg = dir / L"config.json";
-            ctx.log(std::format("check {}", cfg.string()));
+            const auto cfg     = dir / L"config.json";
+            const auto cfg_str = platform::path_to_utf8(cfg);
+            ctx.log(std::format("check {}", cfg_str));
 
             if (platform::has_reparse_point(cfg))
             {
                 ++errors;
                 ctx.log("  refused: reparse point (symlink or junction)");
-                result.record("refused (reparse point): " + cfg.string(), false);
+                result.record("refused (reparse point): " + cfg_str, false);
                 continue;
             }
 
@@ -43,14 +44,15 @@ namespace ts::fixes::m003
             if (ec)
             {
                 ++errors;
-                ctx.log(std::format("  exists check failed: {}", ec.message()));
-                result.record("check failed: " + cfg.string(), false);
+                ctx.log(std::format("  exists check failed: {}",
+                    platform::ec_message_utf8(ec)));
+                result.record("check failed: " + cfg_str, false);
                 continue;
             }
             if (!present)
             {
                 ++not_present;
-                result.record("not present: " + cfg.string(), true);
+                result.record("not present: " + cfg_str, true);
                 continue;
             }
 
@@ -58,14 +60,15 @@ namespace ts::fixes::m003
             if (ec)
             {
                 ++errors;
-                ctx.log(std::format("  remove failed: {}", ec.message()));
-                result.record("failed: " + cfg.string(), false);
+                ctx.log(std::format("  remove failed: {}",
+                    platform::ec_message_utf8(ec)));
+                result.record("failed: " + cfg_str, false);
             }
             else
             {
                 ++deleted;
                 ctx.log("  deleted");
-                result.record("deleted: " + cfg.string(), true);
+                result.record("deleted: " + cfg_str, true);
             }
         }
 

@@ -1,5 +1,6 @@
 #include "paths.hpp"
 
+#include <format>
 #include <system_error>
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -9,6 +10,52 @@
 
 namespace ts::platform
 {
+    std::string path_to_utf8(const std::filesystem::path & p)
+    {
+        const std::u8string u8 = p.u8string();
+        return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+    }
+
+    std::string ec_message_utf8(const std::error_code & ec)
+    {
+        const int v = ec.value();
+        if (v == 0) return {};
+
+        wchar_t * buf = nullptr;
+        const DWORD n = ::FormatMessageW(
+            FORMAT_MESSAGE_ALLOCATE_BUFFER
+                | FORMAT_MESSAGE_FROM_SYSTEM
+                | FORMAT_MESSAGE_IGNORE_INSERTS,
+            nullptr,
+            static_cast<DWORD>(v),
+            0,
+            reinterpret_cast<wchar_t*>(&buf),
+            0,
+            nullptr);
+        if (n == 0 || buf == nullptr)
+            return std::format("error {}", v);
+
+        const int narrow_len = ::WideCharToMultiByte(
+            CP_UTF8, 0, buf, static_cast<int>(n), nullptr, 0, nullptr, nullptr);
+        std::string out;
+        if (narrow_len > 0)
+        {
+            out.resize(static_cast<std::size_t>(narrow_len));
+            ::WideCharToMultiByte(
+                CP_UTF8, 0, buf, static_cast<int>(n),
+                out.data(), narrow_len, nullptr, nullptr);
+        }
+        ::LocalFree(buf);
+
+        while (!out.empty() &&
+            (out.back() == '\n' || out.back() == '\r'
+                || out.back() == '.' || out.back() == ' '))
+        {
+            out.pop_back();
+        }
+        return out;
+    }
+
     bool has_reparse_point(const std::filesystem::path & p) noexcept
     {
         const DWORD attrs = ::GetFileAttributesW(p.c_str());

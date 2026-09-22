@@ -27,14 +27,15 @@ namespace ts::fixes::m014
         {
             if (ctx.cancelled()) break;
 
-            const auto ratchet = dir / L"ratchet.dat";
-            ctx.log(std::format("check {}", ratchet.string()));
+            const auto ratchet     = dir / L"ratchet.dat";
+            const auto ratchet_str = platform::path_to_utf8(ratchet);
+            ctx.log(std::format("check {}", ratchet_str));
 
             if (platform::has_reparse_point(ratchet))
             {
                 ++errors;
                 ctx.log("  refused: reparse point (symlink or junction)");
-                result.record("refused (reparse point): " + ratchet.string(), false);
+                result.record("refused (reparse point): " + ratchet_str, false);
                 continue;
             }
 
@@ -43,14 +44,15 @@ namespace ts::fixes::m014
             if (ec)
             {
                 ++errors;
-                ctx.log(std::format("  exists check failed: {}", ec.message()));
-                result.record("check failed: " + ratchet.string(), false);
+                ctx.log(std::format("  exists check failed: {}",
+                    platform::ec_message_utf8(ec)));
+                result.record("check failed: " + ratchet_str, false);
                 continue;
             }
             if (!present)
             {
                 ++not_present;
-                result.record("not present: " + ratchet.string(), true);
+                result.record("not present: " + ratchet_str, true);
                 continue;
             }
 
@@ -58,14 +60,15 @@ namespace ts::fixes::m014
             if (ec)
             {
                 ++errors;
-                ctx.log(std::format("  remove failed: {}", ec.message()));
-                result.record("failed: " + ratchet.string(), false);
+                ctx.log(std::format("  remove failed: {}",
+                    platform::ec_message_utf8(ec)));
+                result.record("failed: " + ratchet_str, false);
             }
             else
             {
                 ++deleted;
                 ctx.log("  deleted");
-                result.record("deleted: " + ratchet.string(), true);
+                result.record("deleted: " + ratchet_str, true);
             }
         }
 

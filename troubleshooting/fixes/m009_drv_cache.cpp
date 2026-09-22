@@ -27,14 +27,15 @@ namespace ts::fixes::m009
         {
             if (ctx.cancelled()) break;
 
-            const auto blob = dir / L"drv.bin";
-            ctx.log(std::format("check {}", blob.string()));
+            const auto blob     = dir / L"drv.bin";
+            const auto blob_str = platform::path_to_utf8(blob);
+            ctx.log(std::format("check {}", blob_str));
 
             if (platform::has_reparse_point(blob))
             {
                 ++errors;
                 ctx.log("  refused: reparse point (symlink or junction)");
-                result.record("refused (reparse point): " + blob.string(), false);
+                result.record("refused (reparse point): " + blob_str, false);
                 continue;
             }
 
@@ -43,14 +44,15 @@ namespace ts::fixes::m009
             if (ec)
             {
                 ++errors;
-                ctx.log(std::format("  exists check failed: {}", ec.message()));
-                result.record("check failed: " + blob.string(), false);
+                ctx.log(std::format("  exists check failed: {}",
+                    platform::ec_message_utf8(ec)));
+                result.record("check failed: " + blob_str, false);
                 continue;
             }
             if (!present)
             {
                 ++not_present;
-                result.record("not present: " + blob.string(), true);
+                result.record("not present: " + blob_str, true);
                 continue;
             }
 
@@ -58,14 +60,15 @@ namespace ts::fixes::m009
             if (ec)
             {
                 ++errors;
-                ctx.log(std::format("  remove failed: {}", ec.message()));
-                result.record("failed: " + blob.string(), false);
+                ctx.log(std::format("  remove failed: {}",
+                    platform::ec_message_utf8(ec)));
+                result.record("failed: " + blob_str, false);
             }
             else
             {
                 ++deleted;
                 ctx.log("  deleted");
-                result.record("deleted: " + blob.string(), true);
+                result.record("deleted: " + blob_str, true);
             }
         }
 

@@ -43,32 +43,33 @@ namespace ts::fixes::m016
                 const auto & entry = *it;
                 if (!matches_pending(entry.path())) continue;
 
+                const auto entry_str = platform::path_to_utf8(entry.path());
+
                 if (platform::has_reparse_point(entry.path()))
                 {
                     ++errors;
-                    ctx.log(std::format("  refused reparse point: {}",
-                        entry.path().string()));
-                    result.record("refused (reparse point): "
-                        + entry.path().string(), false);
+                    ctx.log(std::format("  refused reparse point: {}", entry_str));
+                    result.record("refused (reparse point): " + entry_str, false);
                     continue;
                 }
 
                 std::error_code type_ec;
                 if (!entry.is_regular_file(type_ec) || type_ec) continue;
 
-                ctx.log(std::format("delete {}", entry.path().string()));
+                ctx.log(std::format("delete {}", entry_str));
                 std::error_code rm_ec;
                 std::filesystem::remove(entry.path(), rm_ec);
                 if (rm_ec)
                 {
                     ++errors;
-                    ctx.log(std::format("  remove failed: {}", rm_ec.message()));
-                    result.record("failed: " + entry.path().string(), false);
+                    ctx.log(std::format("  remove failed: {}",
+                        platform::ec_message_utf8(rm_ec)));
+                    result.record("failed: " + entry_str, false);
                 }
                 else
                 {
                     ++deleted;
-                    result.record("deleted: " + entry.path().string(), true);
+                    result.record("deleted: " + entry_str, true);
                 }
             }
         }
