@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace ts::platform
@@ -13,5 +14,6 @@ namespace ts::platform
     };
 
     [[nodiscard]] std::vector<process_entry> enumerate_processes();
-    [[nodiscard]] bool kill_process(std::uint32_t pid) noexcept;
+    [[nodiscard]] bool kill_process(std::uint32_t pid,
+                                    std::string_view expected_name_lower) noexcept;
 }

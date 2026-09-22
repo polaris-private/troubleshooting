@@ -82,8 +82,9 @@ namespace ts::fixes::t_debuggers
             if (ctx.cancelled()) break;
             if (!matches_debugger(p.exe_name)) continue;
 
+            const std::string exe_lower = to_lower(p.exe_name);
             ctx.log(std::format("terminate {} (pid {})", p.exe_name, p.pid));
-            if (platform::kill_process(p.pid))
+            if (platform::kill_process(p.pid, exe_lower))
             {
                 ++killed;
                 result.record(
@@ -92,7 +93,7 @@ namespace ts::fixes::t_debuggers
             else
             {
                 ++failed;
-                ctx.log("  terminate failed (protected or insufficient rights)");
+                ctx.log("  terminate failed (protected, pid reused, or insufficient rights)");
                 result.record(
                     std::format("failed: {} (pid {})", p.exe_name, p.pid), false);
             }
