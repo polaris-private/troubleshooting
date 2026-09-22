@@ -1,10 +1,13 @@
 #include "app.hpp"
 
+#include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <deque>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -21,7 +24,20 @@ namespace ts::ui
 {
     namespace
     {
-        constexpr std::size_t log_capacity = 200;
+        const ftxui::Color polaris_purple     = ftxui::Color::RGB(0x88, 0x6F, 0xFF);
+        const ftxui::Color polaris_purple_dim = ftxui::Color::RGB(0x4C, 0x3F, 0x8F);
+        const ftxui::Color row_focus_bg       = ftxui::Color::RGB(0x22, 0x1F, 0x30);
+
+        constexpr std::size_t log_tail_capacity = 200;
+        constexpr std::size_t log_tail_visible  = 8;
+
+        enum class screen : int
+        {
+            pick    = 0,
+            confirm = 1,
+            running = 2,
+            result  = 3,
+        };
 
         class status_log
         {
@@ -30,13 +46,15 @@ namespace ts::ui
             {
                 const std::scoped_lock lk{ mtx_ };
                 lines_.push_back(std::move(line));
-                while (lines_.size() > log_capacity) lines_.pop_front();
+                while (lines_.size() > log_tail_capacity) lines_.pop_front();
             }
 
-            [[nodiscard]] std::vector<std::string> snapshot() const
+            [[nodiscard]] std::vector<std::string> tail(std::size_t n) const
             {
                 const std::scoped_lock lk{ mtx_ };
-                return { lines_.begin(), lines_.end() };
+                if (lines_.size() <= n)
+                    return { lines_.begin(), lines_.end() };
+                return { std::prev(lines_.end(), static_cast<std::ptrdiff_t>(n)), lines_.end() };
             }
 
             void clear()
@@ -46,7 +64,7 @@ namespace ts::ui
             }
 
         private:
-            mutable std::mutex     mtx_;
+            mutable std::mutex      mtx_;
             std::deque<std::string> lines_;
         };
 
@@ -60,42 +78,44 @@ namespace ts::ui
                 case core::subsystem::tamper:     return ftxui::Color::Yellow;
                 case core::subsystem::protection: return ftxui::Color::Orange1;
                 case core::subsystem::utilities:  return ftxui::Color::GrayLight;
-                case core::subsystem::main:       return ftxui::Color::Green;
+                case core::subsystem::main:       return polaris_purple;
             }
             return ftxui::Color::Default;
         }
 
-        [[nodiscard]] ftxui::Element render_detail(const core::code_entry & e)
+        [[nodiscard]] std::string to_lower_copy(std::string_view s)
+        {
+            std::string out;
+            out.reserve(s.size());
+            for (char c : s)
+                out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+            return out;
+        }
+
+        [[nodiscard]] ftxui::Element brand_header()
         {
             using namespace ftxui;
+            return vbox({
+                hbox({
+                    text("  "),
+                    text("polaris") | bold | color(polaris_purple),
+                    text("  troubleshooting") | bold,
+                    filler(),
+                    text("v0.1.0") | dim,
+                    text("  "),
+                }),
+                hbox({
+                    text("  "),
+                    text("-----") | color(polaris_purple),
+                }),
+                text(""),
+            });
+        }
 
-            Elements steps;
-            steps.reserve(e.manual_steps.size());
-            for (std::size_t i = 0; i < e.manual_steps.size(); ++i)
-            {
-                steps.push_back(hbox({
-                    text(std::to_string(i + 1) + ". ") | color(Color::GrayDark),
-                    paragraph(e.manual_steps[i]),
-                }));
-            }
-
-            Elements body;
-            body.reserve(8 + steps.size());
-            body.push_back(hbox({
-                text(core::format_code(e.code)) | bold | color(subsys_color(e.sub)),
-                text("  "),
-                text(std::string(e.symbol)) | dim,
-            }));
-            body.push_back(text(std::string(core::subsys_name(e.sub))) | dim);
-            body.push_back(separator());
-            body.push_back(paragraph(std::string(e.summary)));
-            body.push_back(text(""));
-            body.push_back(text("manual steps:") | bold);
-            for (auto & s : steps) body.push_back(std::move(s));
-            body.push_back(text(""));
-            body.push_back(text("auto fix available") | color(Color::Green));
-
-            return vbox(std::move(body));
+        [[nodiscard]] ftxui::Element hint(std::string_view s)
+        {
+            using namespace ftxui;
+            return hbox({ filler(), text(std::string(s)) | dim, filler() });
         }
     }
 
@@ -103,70 +123,84 @@ namespace ts::ui
     {
         using namespace ftxui;
 
-        auto screen = ScreenInteractive::Fullscreen();
-
+        auto screen_h      = ScreenInteractive::Fullscreen();
         const auto entries = core::all_entries();
+        const int total    = static_cast<int>(entries.size());
 
-        std::vector<std::string> code_column;
-        std::vector<std::string> symbol_column;
-        code_column.reserve(entries.size());
-        symbol_column.reserve(entries.size());
+        std::vector<std::string> code_strs;
+        std::vector<std::string> code_strs_lower;
+        std::vector<std::string> symbol_strs;
+        std::vector<std::string> symbol_strs_lower;
+        code_strs.reserve(entries.size());
+        symbol_strs.reserve(entries.size());
+        code_strs_lower.reserve(entries.size());
+        symbol_strs_lower.reserve(entries.size());
         for (const auto & e : entries)
         {
-            code_column.push_back(core::format_code(e.code));
-            symbol_column.emplace_back(e.symbol);
+            auto c = core::format_code(e.code);
+            code_strs_lower.push_back(to_lower_copy(c));
+            code_strs.push_back(std::move(c));
+            symbol_strs.emplace_back(e.symbol);
+            symbol_strs_lower.push_back(to_lower_copy(e.symbol));
         }
 
-        std::vector<std::string> menu_labels(entries.size(), std::string{});
-        int selected = 0;
+        int              current_tab        = static_cast<int>(screen::pick);
+        std::string      search_text;
+        std::vector<int> filtered;
+        int              filtered_selection = 0;
+        int              confirm_focus      = 0;
+        int              result_focus       = 0;
 
-        MenuOption menu_opt = MenuOption::Vertical();
-        menu_opt.entries_option.transform = [&](const EntryState & s) -> Element
-        {
-            const std::size_t i = static_cast<std::size_t>(s.index);
-            if (i >= entries.size()) return text(s.label);
-
-            const auto & entry = entries[i];
-            const auto sub_col  = subsys_color(entry.sub);
-
-            Element code_e   = text(code_column[i])   | bold | color(sub_col);
-            Element sym_e    = text(symbol_column[i]) | dim;
-            Element marker   = text(s.active ? " > " : "   ");
-            if (s.focused) marker = text(" > ") | color(Color::White) | bold;
-
-            Element row = hbox({ marker, code_e, text("  "), sym_e });
-            if (s.focused) row = row | inverted;
-            return row;
-        };
-        auto menu = Menu(&menu_labels, &selected, menu_opt);
-
-        status_log log;
         std::atomic<bool> fix_running{ false };
         std::atomic<int>  spinner_frame{ 0 };
 
         std::mutex        last_result_mtx;
         core::fix_result  last_result{};
         std::string       last_result_code;
-        bool              show_result = false;
+        std::string       running_code;
 
-        auto detail_renderer = Renderer([&]
+        status_log log;
+
+        std::vector<std::string> menu_dummy;
+
+        auto recompute_filter = [&]
         {
-            if (selected < 0 || selected >= static_cast<int>(entries.size()))
-                return text("no code selected");
-            return render_detail(entries[selected]);
-        });
+            const std::string q = to_lower_copy(search_text);
+            filtered.clear();
+            for (int i = 0; i < total; ++i)
+            {
+                if (q.empty()
+                    || code_strs_lower[i].find(q) != std::string::npos
+                    || symbol_strs_lower[i].find(q) != std::string::npos)
+                {
+                    filtered.push_back(i);
+                }
+            }
+            menu_dummy.assign(filtered.size(), std::string{});
+            if (filtered.empty())
+            {
+                filtered_selection = 0;
+                return;
+            }
+            if (filtered_selection >= static_cast<int>(filtered.size()))
+                filtered_selection = static_cast<int>(filtered.size()) - 1;
+            if (filtered_selection < 0) filtered_selection = 0;
+        };
+        recompute_filter();
 
-        auto spawn_fix = [&]
+        auto spawn_fix = [&](int entry_idx)
         {
             if (fix_running.load(std::memory_order_acquire)) return;
-            if (selected < 0 || selected >= static_cast<int>(entries.size())) return;
-            const auto & entry = entries[selected];
+            if (entry_idx < 0 || entry_idx >= total) return;
+            const auto & entry = entries[entry_idx];
             if (!entry.has_auto_fix()) return;
 
+            log.clear();
+            running_code = code_strs[entry_idx];
             fix_running.store(true, std::memory_order_release);
             spinner_frame.store(0, std::memory_order_release);
-            log.push(std::string("[") + core::format_code(entry.code) + "] running auto fix...");
-            screen.PostEvent(Event::Custom);
+            current_tab = static_cast<int>(screen::running);
+            screen_h.PostEvent(Event::Custom);
 
             std::thread([&]
             {
@@ -174,261 +208,384 @@ namespace ts::ui
                 {
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     spinner_frame.fetch_add(1, std::memory_order_relaxed);
-                    screen.PostEvent(Event::Custom);
+                    screen_h.PostEvent(Event::Custom);
                 }
             }).detach();
 
-            std::thread([&, code_str = core::format_code(entry.code), fixer = entry.fixer]() mutable
+            std::thread([&, code_str = code_strs[entry_idx], fixer = entry.fixer]() mutable
             {
                 core::fix_context ctx{ [&](std::string_view msg)
                 {
-                    log.push(std::string("  ") + std::string(msg));
-                    screen.PostEvent(Event::Custom);
+                    log.push(std::string(msg));
+                    screen_h.PostEvent(Event::Custom);
                 } };
 
                 core::fix_result r = fixer(ctx);
-                std::string tail = std::string("[") + code_str + "] "
-                    + (r.ok ? "ok: " : "failed: ") + r.message;
-                log.push(std::move(tail));
-
                 {
                     const std::scoped_lock lk{ last_result_mtx };
                     last_result      = std::move(r);
                     last_result_code = code_str;
-                    show_result      = true;
                 }
-
                 fix_running.store(false, std::memory_order_release);
-                screen.PostEvent(Event::Custom);
+                current_tab  = static_cast<int>(screen::result);
+                result_focus = 0;
+                screen_h.PostEvent(Event::Custom);
             }).detach();
         };
 
-        bool show_confirm = false;
-
-        auto request_fix = [&]
+        InputOption search_opt = InputOption::Default();
+        search_opt.placeholder = "type a code (e.g. M014) or a keyword";
+        search_opt.on_change   = [&] { recompute_filter(); };
+        search_opt.on_enter    = [&]
         {
-            if (fix_running.load(std::memory_order_acquire)) return;
-            if (selected < 0 || selected >= static_cast<int>(entries.size())) return;
-            if (!entries[selected].has_auto_fix()) return;
-            show_confirm = true;
+            if (filtered.empty()) return;
+            confirm_focus = 0;
+            current_tab   = static_cast<int>(screen::confirm);
+        };
+        auto search_input = Input(&search_text, search_opt);
+
+        MenuOption picker_opt = MenuOption::Vertical();
+        picker_opt.entries_option.transform = [&](const EntryState & s) -> Element
+        {
+            const int fi = s.index;
+            if (fi < 0 || fi >= static_cast<int>(filtered.size()))
+                return text("");
+            const int real = filtered[fi];
+            const auto & e = entries[real];
+            const auto  sub_col = subsys_color(e.sub);
+
+            Element arrow = s.focused
+                ? text("  > ") | color(polaris_purple) | bold
+                : text("    ");
+            Element code_e = text(code_strs[real])   | bold | color(sub_col);
+            Element sym_e  = text(symbol_strs[real]) | dim;
+            Element chip   = s.focused
+                ? text(" [ auto fix ] ") | color(Color::White) | bgcolor(polaris_purple) | bold
+                : text(" [ auto fix ] ") | color(polaris_purple);
+
+            Element row = hbox({
+                arrow, code_e, text("   "), sym_e, filler(), chip, text("  "),
+            });
+            if (s.focused) row = row | bgcolor(row_focus_bg);
+            return row;
+        };
+        picker_opt.on_enter = [&]
+        {
+            if (filtered.empty()) return;
+            confirm_focus = 0;
+            current_tab   = static_cast<int>(screen::confirm);
+        };
+        auto picker = Menu(&menu_dummy, &filtered_selection, picker_opt);
+
+        auto pick_container = Container::Vertical({ search_input, picker });
+
+        auto primary_button = [&](std::string label, std::function<void()> on_click)
+        {
+            ButtonOption opt = ButtonOption::Ascii();
+            opt.transform = [](const EntryState & s) -> Element
+            {
+                Element l = text(" " + s.label + " ") | bold;
+                if (s.focused || s.active)
+                    return l | color(Color::White) | bgcolor(polaris_purple);
+                return l | color(polaris_purple) | bgcolor(row_focus_bg);
+            };
+            return Button(label, std::move(on_click), opt);
         };
 
-        auto auto_fix_button = Button("[ auto fix ]", request_fix, ButtonOption::Ascii());
-        auto quit_button = Button("[ quit ]", screen.ExitLoopClosure(), ButtonOption::Ascii());
-
-        auto action_row = Container::Horizontal({ auto_fix_button, quit_button });
-
-        auto right_pane = Container::Vertical({ detail_renderer, action_row });
-
-        auto layout = Container::Horizontal({ menu, right_pane });
-
-        auto confirm_yes = Button(" [ yes, run ] ", [&]
+        auto secondary_button = [&](std::string label, std::function<void()> on_click)
         {
-            show_confirm = false;
-            spawn_fix();
-        }, ButtonOption::Ascii());
-
-        auto confirm_no = Button(" [ cancel ] ", [&]
-        {
-            show_confirm = false;
-        }, ButtonOption::Ascii());
-
-        auto confirm_buttons = Container::Horizontal({ confirm_yes, confirm_no });
-
-        auto confirm_modal = Renderer(confirm_buttons, [&]
-        {
-            std::string code_str = (selected >= 0 && selected < static_cast<int>(entries.size()))
-                ? core::format_code(entries[selected].code)
-                : std::string{};
-            std::string symbol_str = (selected >= 0 && selected < static_cast<int>(entries.size()))
-                ? std::string(entries[selected].symbol)
-                : std::string{};
-
-            return vbox({
-                text(" confirm auto fix ") | bold | center,
-                separator(),
-                text(""),
-                hbox({
-                    text("code:   ") | dim,
-                    text(code_str) | bold,
-                }),
-                hbox({
-                    text("action: ") | dim,
-                    text(symbol_str),
-                }),
-                text(""),
-                paragraph("this will modify state on disk or terminate processes. "
-                          "make sure the polaris loader is closed before continuing."),
-                text(""),
-                hbox({
-                    filler(),
-                    confirm_yes->Render(),
-                    text("  "),
-                    confirm_no->Render(),
-                    filler(),
-                }),
-                text(""),
-            }) | border | size(WIDTH, GREATER_THAN, 56) | bgcolor(Color::Black);
-        });
-
-        auto ui = Renderer(layout, [&]
-        {
-            auto detail_view = detail_renderer->Render()
-                | vscroll_indicator | yframe | flex;
-
-            auto buttons = hbox({
-                auto_fix_button->Render(),
-                text("  "),
-                quit_button->Render(),
-            });
-
-            auto right = vbox({
-                detail_view,
-                separator(),
-                buttons,
-            }) | flex;
-
-            auto left = menu->Render()
-                | vscroll_indicator | yframe
-                | size(WIDTH, EQUAL, 34);
-
-            auto body = hbox({
-                left | border,
-                right | border,
-            }) | flex;
-
-            const auto log_lines = log.snapshot();
-            Elements log_elems;
-            log_elems.reserve(log_lines.size());
-            const std::size_t start = log_lines.size() > 6 ? log_lines.size() - 6 : 0;
-            for (std::size_t i = start; i < log_lines.size(); ++i)
-                log_elems.push_back(text(log_lines[i]));
-            if (log_elems.empty())
-                log_elems.push_back(text("(no actions yet)") | dim);
-
-            const bool busy = fix_running.load(std::memory_order_acquire);
-            Element status_e = busy
-                ? hbox({
-                    spinner(4, spinner_frame.load(std::memory_order_relaxed)),
-                    text("  running fix...") | color(Color::Yellow),
-                  })
-                : text("idle") | dim;
-
-            return vbox({
-                hbox({
-                    text("polaris troubleshooting") | bold,
-                    filler(),
-                    status_e,
-                    text("  "),
-                    text("q to quit") | dim,
-                }) | border,
-                body,
-                vbox({
-                    text(" status log ") | bold,
-                    vbox(std::move(log_elems)),
-                }) | border,
-            });
-        });
-
-        auto result_close = Button(" [ close ] ", [&]
-        {
-            const std::scoped_lock lk{ last_result_mtx };
-            show_result = false;
-        }, ButtonOption::Ascii());
-
-        auto result_buttons = Container::Horizontal({ result_close });
-
-        auto result_modal = Renderer(result_buttons, [&]
-        {
-            core::fix_result snapshot;
-            std::string code_str;
+            ButtonOption opt = ButtonOption::Ascii();
+            opt.transform = [](const EntryState & s) -> Element
             {
-                const std::scoped_lock lk{ last_result_mtx };
-                snapshot = last_result;
-                code_str = last_result_code;
+                Element l = text(" " + s.label + " ");
+                if (s.focused || s.active)
+                    return l | color(Color::White) | bgcolor(polaris_purple_dim);
+                return l | dim;
+            };
+            return Button(label, std::move(on_click), opt);
+        };
+
+        auto run_btn = primary_button("run the fix", [&]
+        {
+            if (filtered.empty()) return;
+            if (filtered_selection < 0
+                || filtered_selection >= static_cast<int>(filtered.size())) return;
+            spawn_fix(filtered[filtered_selection]);
+        });
+
+        auto back_btn = secondary_button("<- back", [&]
+        {
+            current_tab = static_cast<int>(screen::pick);
+        });
+
+        auto confirm_container = Container::Horizontal({ run_btn, back_btn }, &confirm_focus);
+
+        auto another_btn = primary_button("fix another", [&]
+        {
+            search_text.clear();
+            recompute_filter();
+            current_tab = static_cast<int>(screen::pick);
+        });
+
+        auto done_btn = secondary_button("done", [&]
+        {
+            screen_h.ExitLoopClosure()();
+        });
+
+        auto result_container = Container::Horizontal({ another_btn, done_btn }, &result_focus);
+
+        auto running_container = Renderer([] { return text(""); });
+
+        auto root_tab = Container::Tab({
+            pick_container,
+            confirm_container,
+            running_container,
+            result_container,
+        }, &current_tab);
+
+        auto ui = Renderer(root_tab, [&]() -> Element
+        {
+            Element body;
+            const auto s = static_cast<screen>(current_tab);
+
+            if (s == screen::pick)
+            {
+                Element list_e;
+                if (filtered.empty())
+                    list_e = hbox({ filler(),
+                        text("no matches for '" + search_text + "'") | dim,
+                        filler() });
+                else
+                    list_e = picker->Render();
+
+                body = vbox({
+                    text(""),
+                    hbox({ filler(),
+                        text("what error code did the loader show you?") | bold,
+                        filler() }),
+                    text(""),
+                    hbox({ filler(),
+                        search_input->Render() | borderRounded
+                            | size(WIDTH, EQUAL, 66),
+                        filler() }),
+                    text(""),
+                    list_e | vscroll_indicator | yframe
+                        | size(HEIGHT, LESS_THAN, 14),
+                    filler(),
+                    hint("up/down pick    enter select    esc quit"),
+                    text(""),
+                });
             }
-
-            Elements action_rows;
-            action_rows.reserve(snapshot.actions_taken.size());
-            for (const auto & a : snapshot.actions_taken)
+            else if (s == screen::confirm)
             {
-                Element bullet = a.ok
-                    ? text(" ok  ") | color(Color::Green)
-                    : text(" fail") | color(Color::Red);
-                action_rows.push_back(hbox({
-                    bullet,
-                    text("  "),
-                    paragraph(a.description),
-                }));
+                const int real = (filtered_selection >= 0
+                                  && filtered_selection < static_cast<int>(filtered.size()))
+                    ? filtered[filtered_selection] : -1;
+                if (real < 0 || real >= total)
+                {
+                    body = text("no code selected");
+                }
+                else
+                {
+                    const auto & e = entries[real];
+                    Elements will_do;
+                    for (const auto & step : e.manual_steps)
+                    {
+                        will_do.push_back(hbox({
+                            text("     > ") | color(polaris_purple),
+                            paragraph(step) | dim,
+                        }));
+                    }
+
+                    Element code_card = window(
+                        text(""),
+                        text(" " + code_strs[real] + " ") | bold
+                            | color(Color::White) | bgcolor(polaris_purple));
+
+                    body = vbox({
+                        filler(),
+                        hbox({ filler(), code_card, filler() }),
+                        text(""),
+                        hbox({ filler(),
+                            text(std::string(e.summary)) | bold,
+                            filler() }),
+                        text(""),
+                        text(""),
+                        text("   this fix will:") | dim,
+                        text(""),
+                        vbox(std::move(will_do)),
+                        text(""),
+                        text("   close the polaris loader before running.") | dim,
+                        filler(),
+                        hbox({ filler(),
+                            run_btn->Render(),
+                            text("    "),
+                            back_btn->Render(),
+                            filler() }),
+                        text(""),
+                        hint("tab / left-right switch    enter run    esc back"),
+                        text(""),
+                    });
+                }
             }
-            if (action_rows.empty())
-                action_rows.push_back(text("(no actions recorded)") | dim);
-
-            Element verdict = snapshot.ok
-                ? text(" success ") | color(Color::Black) | bgcolor(Color::Green) | bold
-                : text(" failed  ") | color(Color::White) | bgcolor(Color::Red)   | bold;
-
-            return vbox({
-                hbox({
-                    verdict,
-                    text("  "),
-                    text(code_str) | bold,
-                }),
-                separator(),
-                text("actions taken:") | dim,
-                vbox(std::move(action_rows)) | vscroll_indicator | yframe
-                    | size(HEIGHT, LESS_THAN, 12),
-                separator(),
-                text("summary:") | dim,
-                paragraph(snapshot.message),
-                text(""),
-                hbox({
-                    filler(),
-                    result_close->Render(),
-                    filler(),
-                }),
-                text(""),
-            }) | border | size(WIDTH, GREATER_THAN, 64) | bgcolor(Color::Black);
-        });
-
-        auto ui_with_modal = ui
-            | Modal(confirm_modal, &show_confirm)
-            | Modal(result_modal,  &show_result);
-
-        auto app = CatchEvent(ui_with_modal, [&](const Event & e) -> bool
-        {
-            if (e == Event::Escape)
+            else if (s == screen::running)
             {
-                if (show_result)
+                const auto tail = log.tail(log_tail_visible);
+                Elements tail_e;
+                tail_e.reserve(tail.size() + 2);
+                if (tail.empty())
+                    tail_e.push_back(hbox({ filler(),
+                        text("(waiting for the fix to start...)") | dim,
+                        filler() }));
+                for (const auto & t : tail)
+                    tail_e.push_back(hbox({
+                        text("     "),
+                        text(t) | dim,
+                    }));
+
+                body = vbox({
+                    filler(),
+                    hbox({ filler(),
+                        spinner(4, spinner_frame.load(std::memory_order_relaxed))
+                            | color(polaris_purple),
+                        text("   running fix  ") | bold | color(polaris_purple),
+                        text(running_code) | bold,
+                        filler() }),
+                    text(""),
+                    text(""),
+                    hbox({ filler(),
+                        text("---------------------------------------------")
+                            | color(polaris_purple_dim),
+                        filler() }),
+                    text(""),
+                    vbox(std::move(tail_e)),
+                    text(""),
+                    hbox({ filler(),
+                        text("---------------------------------------------")
+                            | color(polaris_purple_dim),
+                        filler() }),
+                    filler(),
+                    text(""),
+                });
+            }
+            else
+            {
+                core::fix_result snap;
+                std::string      code;
                 {
                     const std::scoped_lock lk{ last_result_mtx };
-                    show_result = false;
-                    return true;
+                    snap = last_result;
+                    code = last_result_code;
                 }
-                if (show_confirm)
+
+                const std::string verdict_label = snap.ok ? "   success   " : "   failed    ";
+                const Color       verdict_bg    = snap.ok
+                    ? Color::RGB(0x1F, 0x8A, 0x3D)
+                    : Color::RGB(0xC0, 0x2A, 0x2A);
+                const Color       verdict_fg    = Color::White;
+
+                int ok_deleted     = 0;
+                int not_present    = 0;
+                int failed_actions = 0;
+
+                Elements action_rows;
+                action_rows.reserve(snap.actions_taken.size());
+                for (const auto & a : snap.actions_taken)
                 {
-                    show_confirm = false;
-                    return true;
+                    Element mark;
+                    if (!a.ok)
+                    {
+                        mark = text("  x  ") | color(Color::Red) | bold;
+                        ++failed_actions;
+                    }
+                    else if (a.description.starts_with("not present"))
+                    {
+                        mark = text("  .  ") | dim;
+                        ++not_present;
+                    }
+                    else
+                    {
+                        mark = text("  +  ") | color(Color::Green) | bold;
+                        ++ok_deleted;
+                    }
+                    action_rows.push_back(hbox({
+                        text("   "),
+                        mark,
+                        text(" "),
+                        text(a.description) | dim,
+                    }));
                 }
-                if (!fix_running.load(std::memory_order_acquire))
-                {
-                    screen.ExitLoopClosure()();
-                    return true;
-                }
+                if (action_rows.empty())
+                    action_rows.push_back(hbox({ filler(),
+                        text("(no actions recorded)") | dim,
+                        filler() }));
+
+                std::string counters = std::to_string(ok_deleted) + " done  "
+                    "  " + std::to_string(not_present) + " not present  "
+                    "  " + std::to_string(failed_actions) + " errors";
+
+                body = vbox({
+                    filler(),
+                    hbox({ filler(),
+                        text(verdict_label) | bold | color(verdict_fg) | bgcolor(verdict_bg),
+                        text("   -   "),
+                        text(code) | bold,
+                        filler() }),
+                    text(""),
+                    text(""),
+                    hbox({ filler(), text(counters) | dim, filler() }),
+                    text(""),
+                    hbox({ filler(),
+                        paragraph(snap.message),
+                        filler() }),
+                    text(""),
+                    text("   actions") | dim,
+                    vbox(std::move(action_rows)) | vscroll_indicator | yframe
+                        | size(HEIGHT, LESS_THAN, 10),
+                    filler(),
+                    hbox({ filler(),
+                        another_btn->Render(),
+                        text("    "),
+                        done_btn->Render(),
+                        filler() }),
+                    text(""),
+                    hint("tab / left-right switch    enter select    esc done"),
+                    text(""),
+                });
             }
-            if (e == Event::Character('q'))
+
+            return vbox({
+                brand_header(),
+                body | flex,
+            }) | border;
+        });
+
+        auto app = CatchEvent(ui, [&](const Event & e) -> bool
+        {
+            if (fix_running.load(std::memory_order_acquire))
+                return false;
+
+            if (e == Event::Escape)
             {
-                if (!show_confirm && !show_result
-                    && !fix_running.load(std::memory_order_acquire))
+                switch (static_cast<screen>(current_tab))
                 {
-                    screen.ExitLoopClosure()();
-                    return true;
+                    case screen::pick:
+                        screen_h.ExitLoopClosure()();
+                        return true;
+                    case screen::confirm:
+                        current_tab = static_cast<int>(screen::pick);
+                        return true;
+                    case screen::running:
+                        return true;
+                    case screen::result:
+                        screen_h.ExitLoopClosure()();
+                        return true;
                 }
             }
             return false;
         });
 
-        screen.Loop(app);
+        screen_h.Loop(app);
         return 0;
     }
 }
